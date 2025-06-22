@@ -1,19 +1,23 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type React from "react"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'Tulisify - Perpustakaan Digital Masa Depan',
-  description: 'Akses ribuan buku digital dengan mudah. Baca, unduh, dan kelola koleksi buku Anda dalam satu platform yang modern dan intuitif.',
+  title: "Tulsify Admin - Digital Library Management",
+  description: "Perpustakaan Digital Masa Depan",
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="id">
+      <body className={inter.className}>{children}</body>
     </html>
   )
 }

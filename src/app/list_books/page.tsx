@@ -1,106 +1,105 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
-import Link from "next/link"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, Search, Download, User, LogOut, Filter, Plus } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { BookOpen, Search, Plus, Edit, Trash2, Eye, User, LogOut, Filter } from "lucide-react"
+import Image from "next/image"
+import AddBookForm from "@/components/AddBookForm"
 
 interface Book {
-  id: string
+  id: number
   title: string
   author: string
   year: number
-  category: "SU" | "13+" | "18+"
-  cover?: string
-  file?: string
-  description?: string
+  category: string
+  cover: string
+  file: string
 }
 
-interface AppUser {
-  id: string
-  email: string
-  role: "admin" | "user"
-}
-
-export default function ListBooksPage() {
+export default function BookManagementPage() {
   const [books, setBooks] = useState<Book[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<"all" | "SU" | "13+" | "18+">("all")
-  const [appUser, setAppUser] = useState<AppUser | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editingBook, setEditingBook] = useState<Book | null>(null)
 
-  const categories = ["all", "SU", "13+", "18+"] as const
-
-  // Load user from localStorage
   useEffect(() => {
-    const userData = localStorage.getItem("user")
-    if (userData) {
+    fetch("/api/books")
+      .then((res) => res.json())
+      .then((data) => {
+        // Debug log
+        console.log("DATA API BOOKS:", data)
+        if (Array.isArray(data)) {
+          setBooks(data)
+        } else {
+          setBooks([])
+        }
+      })
+      .catch((err) => {
+        console.error("Gagal fetch dari /api/books, pakai dummy:", err)
+        setBooks([
+          {
+            id: 1,
+            title: "Pulang",
+            author: "Tere Liye",
+            year: 2015,
+            category: "SU",
+            cover: "/placeholder.svg?height=200&width=150",
+            file: "pulang.pdf",
+          },
+          {
+            id: 2,
+            title: "Pergi",
+            author: "Tere Liye",
+            year: 2018,
+            category: "13+",
+            cover: "/placeholder.svg?height=200&width=150",
+            file: "pergi.pdf",
+          },
+          {
+            id: 3,
+            title: "Hello",
+            author: "Tere Liye",
+            year: 2021,
+            category: "18+",
+            cover: "/placeholder.svg?height=200&width=150",
+            file: "hello.pdf",
+          },
+        ])
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleDelete = async (id: number) => {
+    if (confirm("Yakin ingin menghapus buku ini?")) {
       try {
-        setAppUser(JSON.parse(userData))
-      } catch (e) {
-        console.error("Error parsing user data:", e)
-        localStorage.removeItem("user")
+        const res = await fetch(`/api/books/${id}`, { method: "DELETE" })
+        const result = await res.json()
+
+        if (result.success) {
+          setBooks((prevBooks) => (Array.isArray(prevBooks) ? prevBooks.filter((book) => book.id !== id) : []))
+          alert("Buku berhasil dihapus!")
+        } else {
+          alert(`Error: ${result.error}`)
+        }
+      } catch (error) {
+        console.error("Error deleting book:", error)
+        alert("Terjadi kesalahan saat menghapus buku")
       }
-    }
-  }, [])
-
-  // Fetch books
-  useEffect(() => {
-    fetchBooks()
-  }, [])
-
-  const fetchBooks = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await fetch("/api/books")
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch books: ${response.status}`)
-      }
-
-      const data = await response.json()
-      setBooks(data.books || [])
-    } catch (err) {
-      console.error("Fetch books error:", err)
-      setError(err instanceof Error ? err.message : "An error occurred")
-    } finally {
-      setLoading(false)
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem("user")
-    window.location.href = "/"
-  }
-
-  // Filter books based on search and category
-  const filteredBooks = books.filter((book) => {
-    const matchesSearch =
-      searchTerm === "" ||
-      book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      book.author.toLowerCase().includes(searchTerm.toLowerCase())
-
-    const matchesCategory = selectedCategory === "all" || book.category === selectedCategory
-
-    return matchesSearch && matchesCategory
-  })
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <BookOpen className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Terjadi Kesalahan</h2>
-          <p className="text-slate-600 mb-4">{error}</p>
-          <Button onClick={fetchBooks}>Coba Lagi</Button>
-        </div>
-      </div>
+  // books dijamin array, tapi tetap kasih fallback
+  let filteredBooks: Book[] = []
+  if (Array.isArray(books)) {
+    filteredBooks = books.filter(
+      (book) =>
+        book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        book.author.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }
 
@@ -110,44 +109,30 @@ export default function ListBooksPage() {
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Tulisify
+                Tulisify Admin
               </span>
-            </Link>
-
+            </div>
             <div className="flex items-center space-x-4">
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
                 <Input
                   type="text"
-                  placeholder="Cari buku atau penulis..."
+                  placeholder="Cari buku..."
                   className="pl-10 w-80 h-12 border-slate-200 focus:border-blue-500"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-
-              {appUser?.role === "admin" && (
-                <Button asChild className="bg-green-600 hover:bg-green-700">
-                  <Link href="/manajemen">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Kelola Buku
-                  </Link>
-                </Button>
-              )}
-
-              {appUser && (
-                <Button variant="ghost" className="text-slate-600 hover:text-blue-600">
-                  <User className="w-5 h-5 mr-2" />
-                  {appUser.email}
-                </Button>
-              )}
-
-              <Button variant="ghost" className="text-slate-600 hover:text-red-600" onClick={handleLogout}>
+              <Button variant="ghost" className="text-slate-600 hover:text-blue-600">
+                <User className="w-5 h-5 mr-2" />
+                Admin
+              </Button>
+              <Button variant="ghost" className="text-slate-600 hover:text-red-600">
                 <LogOut className="w-5 h-5 mr-2" />
                 Keluar
               </Button>
@@ -156,22 +141,30 @@ export default function ListBooksPage() {
         </div>
       </nav>
 
-      {/* Header Section */}
-      <div className="container mx-auto px-4 py-12">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">Koleksi Buku Digital</h1>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Jelajahi ribuan buku dari berbagai kategori dan penulis terbaik
-          </p>
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Manajemen Buku</h1>
+            <p className="text-slate-600">Kelola koleksi buku digital Anda</p>
+          </div>
+          <Button
+            className="mt-4 md:mt-0 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            onClick={() => setShowAddForm(true)}
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Tambah Buku
+          </Button>
         </div>
 
-        {/* Search and Filter - Mobile */}
-        <div className="md:hidden mb-8 space-y-4">
+        {/* Search - Mobile */}
+        <div className="md:hidden mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
             <Input
               type="text"
-              placeholder="Cari buku atau penulis..."
+              placeholder="Cari buku..."
               className="pl-10 h-12 border-slate-200 focus:border-blue-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -179,95 +172,164 @@ export default function ListBooksPage() {
           </div>
         </div>
 
-        {/* Category Filter */}
-        <div className="flex flex-wrap gap-2 mb-8 justify-center">
-          {categories.map((category) => (
-            <Button
-              key={category}
-              variant={selectedCategory === category ? "default" : "outline"}
-              onClick={() => setSelectedCategory(category)}
-              className={
-                selectedCategory === category
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                  : "border-slate-200 hover:border-blue-300"
-              }
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              {category === "all" ? "Semua" : category}
-            </Button>
-          ))}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-600 text-sm font-medium">Total Buku</p>
+                  <p className="text-3xl font-bold text-slate-900">{Array.isArray(books) ? books.length : 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <BookOpen className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-600 text-sm font-medium">Kategori SU</p>
+                  <p className="text-3xl font-bold text-slate-900">
+                    {Array.isArray(books) ? books.filter((book) => book.category === "SU").length : 0}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Filter className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-600 text-sm font-medium">Tahun Terbaru</p>
+                  <p className="text-3xl font-bold text-slate-900">
+                    {Array.isArray(books) && books.length > 0 ? Math.max(...books.map((book) => book.year)) : "-"}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <BookOpen className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Books Grid */}
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        ) : filteredBooks.length === 0 ? (
-          <div className="text-center py-20">
-            <BookOpen className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-slate-600 mb-2">
-              {books.length === 0 ? "Belum ada buku tersedia" : "Tidak ada buku ditemukan"}
-            </h3>
-            <p className="text-slate-500">
-              {books.length === 0
-                ? "Admin belum menambahkan buku ke perpustakaan"
-                : "Coba ubah kata kunci pencarian atau filter kategori"}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {filteredBooks.map((book) => (
-              <Card
-                key={book.id}
-                className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-white/80 backdrop-blur-sm overflow-hidden"
-              >
-                <div className="relative overflow-hidden">
-                  <Image
-                    src={book.cover || "/placeholder.svg?height=400&width=300"}
-                    alt={book.title}
-                    width={300}
-                    height={400}
-                    className="w-full h-80 object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute top-4 right-4">
-                    <Badge variant="secondary" className="bg-white/90 text-slate-700 font-medium">
-                      {book.category}
-                    </Badge>
-                  </div>
-                </div>
-
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                    {book.title}
-                  </h3>
-                  <p className="text-slate-600 mb-1">
-                    <span className="font-medium">Penulis:</span> {book.author}
-                  </p>
-                  <p className="text-slate-600 mb-4">
-                    <span className="font-medium">Tahun:</span> {book.year}
-                  </p>
-                  {book.description && <p className="text-slate-500 text-sm mb-4 line-clamp-2">{book.description}</p>}
-
-                  <Button
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                    onClick={() => {
-                      if (book.file) {
-                        window.open(book.file, "_blank")
-                      } else {
-                        alert("File buku tidak tersedia")
-                      }
-                    }}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download Buku
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+        {/* Books Table */}
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold text-slate-900">Daftar Buku</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-slate-200">
+                      <TableHead className="font-semibold text-slate-700">No</TableHead>
+                      <TableHead className="font-semibold text-slate-700">Cover</TableHead>
+                      <TableHead className="font-semibold text-slate-700">Judul Buku</TableHead>
+                      <TableHead className="font-semibold text-slate-700">Pengarang</TableHead>
+                      <TableHead className="font-semibold text-slate-700">Tahun</TableHead>
+                      <TableHead className="font-semibold text-slate-700">Kategori</TableHead>
+                      <TableHead className="font-semibold text-slate-700">File</TableHead>
+                      <TableHead className="font-semibold text-slate-700">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredBooks.length > 0 ? (
+                      filteredBooks.map((book, index) => (
+                        <TableRow key={book.id} className="border-slate-100 hover:bg-slate-50/50">
+                          <TableCell className="font-medium">{index + 1}</TableCell>
+                          <TableCell>
+                            <Image
+                              src={book.cover || "/placeholder.svg"}
+                              alt={book.title}
+                              width={60}
+                              height={80}
+                              className="rounded-lg object-cover shadow-sm"
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium text-slate-900 max-w-xs">
+                            <div className="truncate">{book.title}</div>
+                          </TableCell>
+                          <TableCell className="text-slate-600">{book.author}</TableCell>
+                          <TableCell className="text-slate-600">{book.year}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-medium">
+                              {book.category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              className="border-slate-200 hover:border-blue-300"
+                            >
+                              <a href={`/uploads/${book.file}`} target="_blank" rel="noopener noreferrer">
+                                <Eye className="w-4 h-4 mr-1" />
+                                Lihat
+                              </a>
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingBook(book)}
+                                className="border-yellow-200 text-yellow-700 hover:bg-yellow-50 hover:border-yellow-300"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(book.id)}
+                                className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-12">
+                          <BookOpen className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                          <p className="text-slate-500">Belum ada data buku.</p>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <AddBookForm
+            onSuccess={() => {
+              setShowAddForm(false)
+              // Refresh books list
+              window.location.reload()
+            }}
+            onCancel={() => setShowAddForm(false)}
+          />
+        </div>
+      )}
     </div>
   )
 }
