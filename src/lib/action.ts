@@ -10,7 +10,6 @@ export async function registerUser(formData: FormData) {
 
     console.log("📥 Received data:", { name, email, password: "***" })
 
-    // Validation
     if (!email || !password) {
       return {
         success: false,
@@ -25,7 +24,6 @@ export async function registerUser(formData: FormData) {
       }
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       return {
@@ -34,13 +32,7 @@ export async function registerUser(formData: FormData) {
       }
     }
 
-    // Simulate processing time
     await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    // Here you would typically:
-    // 1. Hash the password
-    // 2. Save to database
-    // 3. Send verification email
 
     console.log("✅ Registration successful for:", email)
 

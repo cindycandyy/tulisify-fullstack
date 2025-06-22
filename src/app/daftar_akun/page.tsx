@@ -1,7 +1,9 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useTransition } from "react"
+
+import { registerUser } from "@/lib/action" 
 
 export default function DaftarAkunPage() {
   const [formData, setFormData] = useState({
@@ -10,41 +12,35 @@ export default function DaftarAkunPage() {
     password: "",
   })
   const [message, setMessage] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setMessage("")
 
-    try {
-      console.log("🚀 Submitting registration...")
-      console.log("📤 Data:", formData)
+    const formDataObj = new FormData()
+    formDataObj.append("name", formData.name)
+    formDataObj.append("email", formData.email)
+    formDataObj.append("password", formData.password)
 
-      const response = await fetch("/api/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      })
+    startTransition(async () => {
+      try {
+        console.log("🚀 Calling Server Action...")
+        const result = await registerUser(formDataObj)
 
-      console.log("📥 Response status:", response.status)
+        console.log("📥 Server Action result:", result)
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        if (result.success) {
+          setMessage("✅ " + result.message)
+          setFormData({ name: "", email: "", password: "" })
+        } else {
+          setMessage("❌ " + result.error)
+        }
+      } catch (error) {
+        console.error("❌ Client error:", error)
+        setMessage("❌ Terjadi kesalahan. Silakan coba lagi.")
       }
-
-      const data = await response.json()
-      console.log("📥 Response data:", data)
-
-      setMessage("✅ " + data.message)
-    } catch (error) {
-      console.error("❌ Registration error:", error)
-      setMessage("❌ " + (error instanceof Error ? error.message : String(error)))
-    } finally {
-      setIsLoading(false)
-    }
+    })
   }
 
   return (
@@ -52,9 +48,16 @@ export default function DaftarAkunPage() {
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
         <h1 className="text-2xl font-bold text-center mb-6">Daftar Akun</h1>
 
+        <div className="mb-4 p-3 bg-blue-50 rounded text-xs border border-blue-200">
+          <p className="font-semibold mb-2 text-blue-800">Debug Info:</p>
+          <p className="text-blue-700">✅ Server Action approach</p>
+          <p className="text-blue-700">✅ No NextAuth.js conflicts</p>
+          <p className="text-blue-700">📁 Structure: src/app/actions/register.ts</p>
+        </div>
+
         {message && (
           <div
-            className={`p-3 rounded mb-4 ${
+            className={`p-3 rounded mb-4 text-sm ${
               message.includes("✅")
                 ? "bg-green-100 text-green-700 border border-green-300"
                 : "bg-red-100 text-red-700 border border-red-300"
@@ -73,11 +76,12 @@ export default function DaftarAkunPage() {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Nama lengkap"
+              disabled={isPending}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
             <input
               type="email"
               required
@@ -85,32 +89,35 @@ export default function DaftarAkunPage() {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="nama@email.com"
+              disabled={isPending}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
             <input
               type="password"
               required
+              minLength={8}
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Minimal 8 karakter"
+              disabled={isPending}
             />
           </div>
 
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            disabled={isPending}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isLoading ? "Mendaftar..." : "Daftar Akun"}
+            {isPending ? "Mendaftar..." : "Daftar Akun"}
           </button>
         </form>
 
         <div className="mt-4 text-center">
-          <a href="/login" className="text-blue-600 hover:underline">
+          <a href="/login" className="text-blue-600 hover:underline text-sm">
             Sudah punya akun? Masuk di sini
           </a>
         </div>
