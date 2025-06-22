@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -16,7 +15,12 @@ export default function LoginPage() {
   const [formData, setFormData] = useState({ email: "", password: "" })
   const [message, setMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -29,23 +33,53 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const res = await fetch("http://localhost:4000/api/auth/login", {
+      const res = await fetch("/api/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(formData),
       })
+
       const data = await res.json()
 
-      if (res.ok) {
-        router.push("/list_books")
+      if (res.ok && data.success) {
+        setMessage("✅ Login berhasil! Mengalihkan...")
+
+        // Save user data to localStorage
+        if (typeof window !== "undefined") {
+          localStorage.setItem("user", JSON.stringify(data.user))
+          localStorage.setItem("token", data.token)
+        }
+
+        // Redirect based on role
+        setTimeout(() => {
+          if (data.user.role === "ADMIN") {
+            router.push("/manajemen")
+          } else {
+            router.push("/list_books")
+          }
+        }, 1500)
       } else {
-        setMessage(data.msg || "Login gagal.")
+        setMessage(`❌ ${data.error || "Login gagal"}`)
       }
-    } catch (err) {
-      setMessage("Terjadi kesalahan pada server.")
+    } catch (error) {
+      console.error("Login error:", error)
+      setMessage("❌ Terjadi kesalahan pada server")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -106,8 +140,12 @@ export default function LoginPage() {
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {message && (
-                    <Alert className="border-red-200 bg-red-50">
-                      <AlertDescription className="text-red-800">{message}</AlertDescription>
+                    <Alert
+                      className={message.includes("✅") ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}
+                    >
+                      <AlertDescription className={message.includes("✅") ? "text-green-800" : "text-red-800"}>
+                        {message}
+                      </AlertDescription>
                     </Alert>
                   )}
 

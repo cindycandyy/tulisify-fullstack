@@ -1,36 +1,95 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, Search, Download, User, LogOut, Filter } from "lucide-react"
-import { useBooks } from "@/presentation/hooks/useBooks"
-import { useAuth } from "@/presentation/hooks/useAuth"
-import type { BookCategory } from "@/domain/entities/Book"
+import { BookOpen, Search, Download, User, LogOut, Filter, Plus } from "lucide-react"
 
-import type { JSX } from "react"
+interface Book {
+  id: string
+  title: string
+  author: string
+  year: number
+  category: "SU" | "13+" | "18+"
+  cover?: string
+  file?: string
+  description?: string
+}
 
-export default function ListBooksPage(): JSX.Element {
-  const [searchTerm, setSearchTerm] = useState<string>("")
-  const [selectedCategory, setSelectedCategory] = useState<BookCategory | "all">("all")
+interface AppUser {
+  id: string
+  email: string
+  role: "admin" | "user"
+}
 
-  const { books, loading, error } = useBooks({
-    search: searchTerm,
-    category: selectedCategory,
-  })
+export default function ListBooksPage() {
+  const [books, setBooks] = useState<Book[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState<"all" | "SU" | "13+" | "18+">("all")
+  const [appUser, setAppUser] = useState<AppUser | null>(null)
 
-  const { user, logout } = useAuth()
+  const categories = ["all", "SU", "13+", "18+"] as const
 
-  const categories: Array<BookCategory | "all"> = ["all", "SU", "13+", "18+"]
+  // Load user from localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem("user")
+    if (userData) {
+      try {
+        setAppUser(JSON.parse(userData))
+      } catch (e) {
+        console.error("Error parsing user data:", e)
+        localStorage.removeItem("user")
+      }
+    }
+  }, [])
 
-  const handleLogout = async (): Promise<void> => {
-    await logout()
+  // Fetch books
+  useEffect(() => {
+    fetchBooks()
+  }, [])
+
+  const fetchBooks = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await fetch("/api/books")
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch books: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setBooks(data.books || [])
+    } catch (err) {
+      console.error("Fetch books error:", err)
+      setError(err instanceof Error ? err.message : "An error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem("user")
     window.location.href = "/"
   }
+
+  // Filter books based on search and category
+  const filteredBooks = books.filter((book) => {
+    const matchesSearch =
+      searchTerm === "" ||
+      book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      book.author.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesCategory = selectedCategory === "all" || book.category === selectedCategory
+
+    return matchesSearch && matchesCategory
+  })
 
   if (error) {
     return (
@@ -39,7 +98,7 @@ export default function ListBooksPage(): JSX.Element {
           <BookOpen className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Terjadi Kesalahan</h2>
           <p className="text-slate-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>Coba Lagi</Button>
+          <Button onClick={fetchBooks}>Coba Lagi</Button>
         </div>
       </div>
     )
@@ -72,10 +131,19 @@ export default function ListBooksPage(): JSX.Element {
                 />
               </div>
 
-              {user && (
+              {appUser?.role === "admin" && (
+                <Button asChild className="bg-green-600 hover:bg-green-700">
+                  <Link href="/manajemen">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Kelola Buku
+                  </Link>
+                </Button>
+              )}
+
+              {appUser && (
                 <Button variant="ghost" className="text-slate-600 hover:text-blue-600">
                   <User className="w-5 h-5 mr-2" />
-                  {user.email}
+                  {appUser.email}
                 </Button>
               )}
 
@@ -135,22 +203,28 @@ export default function ListBooksPage(): JSX.Element {
           <div className="flex justify-center items-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
-        ) : books.length === 0 ? (
+        ) : filteredBooks.length === 0 ? (
           <div className="text-center py-20">
             <BookOpen className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-slate-600 mb-2">Tidak ada buku ditemukan</h3>
-            <p className="text-slate-500">Coba ubah kata kunci pencarian atau filter kategori</p>
+            <h3 className="text-xl font-semibold text-slate-600 mb-2">
+              {books.length === 0 ? "Belum ada buku tersedia" : "Tidak ada buku ditemukan"}
+            </h3>
+            <p className="text-slate-500">
+              {books.length === 0
+                ? "Admin belum menambahkan buku ke perpustakaan"
+                : "Coba ubah kata kunci pencarian atau filter kategori"}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {books.map((book) => (
+            {filteredBooks.map((book) => (
               <Card
                 key={book.id}
                 className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-white/80 backdrop-blur-sm overflow-hidden"
               >
                 <div className="relative overflow-hidden">
                   <Image
-                    src={book.cover ? (book.cover.startsWith("http") ? book.cover : `http://localhost:4000/${book.cover}`) : "/placeholder.jpg"}
+                    src={book.cover || "/placeholder.svg?height=400&width=300"}
                     alt={book.title}
                     width={300}
                     height={400}
@@ -173,19 +247,20 @@ export default function ListBooksPage(): JSX.Element {
                   <p className="text-slate-600 mb-4">
                     <span className="font-medium">Tahun:</span> {book.year}
                   </p>
+                  {book.description && <p className="text-slate-500 text-sm mb-4 line-clamp-2">{book.description}</p>}
 
                   <Button
                     className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    onClick={() => {
+                      if (book.file) {
+                        window.open(book.file, "_blank")
+                      } else {
+                        alert("File buku tidak tersedia")
+                      }
+                    }}
                   >
-                    <a
-                      href={book.file ? (book.file.startsWith("http") ? book.file : `http://localhost:4000/${book.file}`) : "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download Buku
-                    </a>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Buku
                   </Button>
                 </CardContent>
               </Card>

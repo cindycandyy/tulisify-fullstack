@@ -1,182 +1,118 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { BookOpen, Mail, Lock, User, ArrowLeft } from "lucide-react"
 
 export default function DaftarAkunPage() {
-  const [formData, setFormData] = useState({ email: "", password: "" })
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  })
   const [message, setMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setMessage("")
     setIsLoading(true)
+    setMessage("")
 
     try {
-      const res = await fetch("http://localhost:4000/api/auth/register", {
+      console.log("🚀 Submitting registration...")
+      console.log("📤 Data:", formData)
+
+      const response = await fetch("/api/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(formData),
       })
-      const data = await res.json()
 
-      if (res.ok) {
-        setMessage("Registrasi berhasil! Silakan login.")
-        setTimeout(() => router.push("/login"), 1500)
-      } else {
-        setMessage(data.msg || "Registrasi gagal.")
+      console.log("📥 Response status:", response.status)
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
-    } catch (err) {
-      setMessage("Terjadi kesalahan pada server.")
+
+      const data = await response.json()
+      console.log("📥 Response data:", data)
+
+      setMessage("✅ " + data.message)
+    } catch (error) {
+      console.error("❌ Registration error:", error)
+      setMessage("❌ " + (error instanceof Error ? error.message : String(error)))
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Tulisify
-              </span>
-            </Link>
-            <Link href="/">
-              <Button variant="ghost" className="text-slate-600 hover:text-blue-600">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Kembali
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
+        <h1 className="text-2xl font-bold text-center mb-6">Daftar Akun</h1>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
-          {/* Left Side - Illustration */}
-          <div className="hidden lg:block">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-indigo-600/20 rounded-3xl transform rotate-3"></div>
-              <div className="relative bg-white rounded-3xl p-8 shadow-2xl">
-                <div className="text-center">
-                  <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                    <User className="w-12 h-12 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-4">Bergabung dengan Tulisify</h3>
-                  <p className="text-slate-600 leading-relaxed">
-                    Akses ribuan buku digital, buat koleksi pribadi, dan nikmati pengalaman membaca yang tak terbatas.
-                  </p>
-                </div>
-              </div>
-            </div>
+        {message && (
+          <div
+            className={`p-3 rounded mb-4 ${
+              message.includes("✅")
+                ? "bg-green-100 text-green-700 border border-green-300"
+                : "bg-red-100 text-red-700 border border-red-300"
+            }`}
+          >
+            {message}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nama (Opsional)</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Nama lengkap"
+            />
           </div>
 
-          {/* Right Side - Form */}
-          <div className="w-full max-w-md mx-auto lg:mx-0">
-            <Card className="border-0 shadow-2xl bg-white/80 backdrop-blur-sm">
-              <CardHeader className="text-center pb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <User className="w-8 h-8 text-white" />
-                </div>
-                <CardTitle className="text-2xl font-bold text-slate-900">Daftar Akun</CardTitle>
-                <p className="text-slate-600">Buat akun baru untuk memulai</p>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {message && (
-                    <Alert
-                      className={
-                        message.includes("berhasil") ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"
-                      }
-                    >
-                      <AlertDescription className={message.includes("berhasil") ? "text-green-800" : "text-red-800"}>
-                        {message}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-slate-700 font-medium">
-                      Email
-                    </Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
-                      <Input
-                        id="email"
-                        type="email"
-                        name="email"
-                        placeholder="nama@email.com"
-                        required
-                        className="pl-10 h-12 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                        value={formData.email}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-slate-700 font-medium">
-                      Password
-                    </Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
-                      <Input
-                        id="password"
-                        type="password"
-                        name="password"
-                        placeholder="Minimal 8 karakter"
-                        required
-                        className="pl-10 h-12 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                        value={formData.password}
-                        onChange={handleChange}
-                      />
-                    </div>
-                    <p className="text-sm text-slate-500">Minimal 8 karakter, kombinasi huruf dan angka</p>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium"
-                  >
-                    {isLoading ? "Mendaftar..." : "Daftar Akun"}
-                  </Button>
-
-                  <div className="text-center">
-                    <p className="text-slate-600">
-                      Sudah punya akun?{" "}
-                      <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
-                        Masuk di sini
-                      </Link>
-                    </p>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="nama@email.com"
+            />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input
+              type="password"
+              required
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Minimal 8 karakter"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isLoading ? "Mendaftar..." : "Daftar Akun"}
+          </button>
+        </form>
+
+        <div className="mt-4 text-center">
+          <a href="/login" className="text-blue-600 hover:underline">
+            Sudah punya akun? Masuk di sini
+          </a>
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { BookOpen, Search, Plus, Edit, Trash2, Eye, User, LogOut, Filter } from "lucide-react"
 import Image from "next/image"
+import AddBookForm from "@/components/AddBookForm"
 
 interface Book {
   id: number
@@ -23,6 +24,8 @@ export default function BookManagementPage() {
   const [books, setBooks] = useState<Book[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editingBook, setEditingBook] = useState<Book | null>(null)
 
   useEffect(() => {
     fetch("/api/books")
@@ -65,9 +68,19 @@ export default function BookManagementPage() {
 
   const handleDelete = async (id: number) => {
     if (confirm("Yakin ingin menghapus buku ini?")) {
-      const res = await fetch(`/api/books/${id}`, { method: "DELETE" })
-      if (res.ok) {
-        setBooks(books.filter((book) => book.id !== id))
+      try {
+        const res = await fetch(`/api/books/${id}`, { method: "DELETE" })
+        const result = await res.json()
+
+        if (result.success) {
+          setBooks(books.filter((book) => book.id !== id))
+          alert("Buku berhasil dihapus!")
+        } else {
+          alert(`Error: ${result.error}`)
+        }
+      } catch (error) {
+        console.error("Error deleting book:", error)
+        alert("Terjadi kesalahan saat menghapus buku")
       }
     }
   }
@@ -128,7 +141,10 @@ export default function BookManagementPage() {
             <p className="text-slate-600">Kelola koleksi buku digital Anda</p>
           </div>
 
-          <Button className="mt-4 md:mt-0 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+          <Button
+            className="mt-4 md:mt-0 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            onClick={() => setShowAddForm(true)}
+          >
             <Plus className="w-5 h-5 mr-2" />
             Tambah Buku
           </Button>
@@ -262,6 +278,7 @@ export default function BookManagementPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
+                                onClick={() => setEditingBook(book)}
                                 className="border-yellow-200 text-yellow-700 hover:bg-yellow-50 hover:border-yellow-300"
                               >
                                 <Edit className="w-4 h-4" />
@@ -293,6 +310,18 @@ export default function BookManagementPage() {
           </CardContent>
         </Card>
       </div>
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <AddBookForm
+            onSuccess={() => {
+              setShowAddForm(false)
+              // Refresh books list
+              window.location.reload()
+            }}
+            onCancel={() => setShowAddForm(false)}
+          />
+        </div>
+      )}
     </div>
   )
 }
