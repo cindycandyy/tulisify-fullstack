@@ -1,174 +1,480 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { BookOpen, Search, Plus, Edit, Trash2, ArrowLeft } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Search, User, LogOut, BookOpen, Filter, Calendar, Plus, Eye, Edit, Trash2, Loader2 } from "lucide-react"
+import AddBookModal from "@/components/add-book-modal"
+import ViewBookModal from "@/components/view-book-modal"
+import PdfReaderModal from "@/components/pdf-reader-modal"
+import { useToast } from "../../hooks/use-toast"
+import { useBooks } from "../../hooks/use-books"
+import type { Book } from "../../lib/supabase"
 
-// Data dummy untuk demo
-const dummyBooks = [
-  {
-    id: 1,
-    title: "Belajar React untuk Pemula",
-    author: "John Doe",
-    year: 2024,
-    category: "Programming",
-    description: "Panduan lengkap belajar React dari dasar hingga mahir",
-  },
-  {
-    id: 2,
-    title: "Mastering Next.js",
-    author: "Jane Smith",
-    year: 2024,
-    category: "Web Development",
-    description: "Teknik advanced untuk mengembangkan aplikasi dengan Next.js",
-  },
-  {
-    id: 3,
-    title: "Database Design Patterns",
-    author: "Bob Wilson",
-    year: 2023,
-    category: "Database",
-    description: "Pola-pola desain database yang efektif dan scalable",
-  },
-]
-
-export default function ManagementPage() {
+export default function ManajemenPage() {
+  const [showAddModal, setShowAddModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [books, setBooks] = useState(dummyBooks)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showPdfReader, setShowPdfReader] = useState(false)
+  const { toast } = useToast()
+  const router = useRouter() // next/router untuk SPA redirect
 
-  const filteredBooks = books.filter(
-    (book) =>
-      book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      book.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      book.category.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  const { books, loading, error, addBook, updateBook, deleteBook, uploadFile } = useBooks(searchQuery)
 
-  const handleDelete = (id: number, title: string) => {
-    if (confirm(`Apakah Anda yakin ingin menghapus buku "${title}"?`)) {
-      setBooks(books.filter((book) => book.id !== id))
-      alert("Buku berhasil dihapus!")
+  // Handler Tambah Buku
+  const handleAddBook = async (newBookData: {
+    title: string
+    author: string
+    year: number
+    category: string
+    description: string
+    coverFile?: File | null
+    pdfFile?: File | null
+  }) => {
+    try {
+      let coverUrl = ""
+      let pdfUrl = ""
+      if (newBookData.coverFile) {
+        coverUrl = await uploadFile(newBookData.coverFile, "cover")
+      }
+      if (newBookData.pdfFile) {
+        pdfUrl = await uploadFile(newBookData.pdfFile, "pdf")
+      }
+      await addBook({
+        title: newBookData.title,
+        author: newBookData.author,
+        year: newBookData.year,
+        category: newBookData.category,
+        description: newBookData.description,
+        cover_url: coverUrl,
+        pdf_url: pdfUrl,
+      })
+      toast({
+        title: "Berhasil!",
+        description: `Buku "${newBookData.title}" berhasil ditambahkan.`,
+        variant: "success",
+      })
+    } catch (error) {
+      toast({
+        title: "Error!",
+        description: error instanceof Error ? error.message : "Gagal menambahkan buku",
+        variant: "error",
+      })
+      throw error
     }
   }
 
+  // Handler Hapus Buku
+  const handleDeleteBook = async (bookId: number) => {
+    const bookToDelete = books.find((book) => book.id === bookId)
+    if (confirm("Apakah Anda yakin ingin menghapus buku ini?")) {
+      try {
+        await deleteBook(bookId)
+        toast({
+          title: "Buku Dihapus",
+          description: `Buku "${bookToDelete?.title}" berhasil dihapus.`,
+          variant: "success",
+        })
+      } catch (error) {
+        toast({
+          title: "Error!",
+          description: error instanceof Error ? error.message : "Gagal menghapus buku",
+          variant: "error",
+        })
+      }
+    }
+  }
+
+  // Handler Edit Buku
+  const handleEditBook = (book: Book) => {
+    setSelectedBook(book)
+    setShowEditModal(true)
+  }
+
+  // Handler View Buku
+  const handleViewBook = (book: Book) => {
+    console.log("View diklik", book)
+    setSelectedBook(book)
+    setShowViewModal(true)
+  }
+
+  // Handler Buka PDF
+  const handleOpenPdf = (book: Book) => {
+    setSelectedBook(book)
+    setShowViewModal(false)
+    setShowPdfReader(true)
+    toast({
+      title: "Membuka PDF",
+      description: `Sedang memuat "${book.title}"...`,
+      variant: "default",
+    })
+  }
+
+  // Handler Update Buku
+  const handleUpdateBook = async (updatedBookData: {
+    title: string
+    author: string
+    year: number
+    category: string
+    description: string
+    coverFile?: File | null
+    pdfFile?: File | null
+  }) => {
+    if (selectedBook) {
+      try {
+        let coverUrl = selectedBook.cover_url || ""
+        let pdfUrl = selectedBook.pdf_url || ""
+        if (updatedBookData.coverFile) {
+          coverUrl = await uploadFile(updatedBookData.coverFile, "cover")
+        }
+        if (updatedBookData.pdfFile) {
+          pdfUrl = await uploadFile(updatedBookData.pdfFile, "pdf")
+        }
+        await updateBook(selectedBook.id, {
+          title: updatedBookData.title,
+          author: updatedBookData.author,
+          year: updatedBookData.year,
+          category: updatedBookData.category,
+          description: updatedBookData.description,
+          cover_url: coverUrl,
+          pdf_url: pdfUrl,
+        })
+        toast({
+          title: "Berhasil Diperbarui!",
+          description: `Buku "${updatedBookData.title}" berhasil diperbarui.`,
+          variant: "success",
+        })
+      } catch (error) {
+        toast({
+          title: "Error!",
+          description: error instanceof Error ? error.message : "Gagal memperbarui buku",
+          variant: "error",
+        })
+        throw error
+      }
+    }
+  }
+
+  // Kontras badge kategori
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case "SU":
+        return "bg-blue-600 text-white border border-blue-700 font-semibold"
+      case "13+":
+        return "bg-green-600 text-white border border-green-700 font-semibold"
+      case "18+":
+        return "bg-red-600 text-white border border-red-700 font-semibold"
+      case "FIKSI":
+        return "bg-purple-600 text-white border border-purple-700 font-semibold"
+      case "NON-FIKSI":
+        return "bg-orange-500 text-white border border-orange-600 font-semibold"
+      case "AKADEMIK":
+        return "bg-gray-800 text-white border border-gray-900 font-semibold"
+      default:
+        return "bg-gray-400 text-white border border-gray-500 font-semibold"
+    }
+  }
+
+  // Statistik
+  const totalBooks = books.length
+  const suBooks = books.filter((book) => book.category === "SU").length
+  const latestYear = books.length > 0 ? Math.max(...books.map((book) => book.year)) : new Date().getFullYear()
+
+  // Handler Logout
+  const handleLogout = () => {
+    if (confirm("Apakah Anda yakin ingin keluar?")) {
+      localStorage.removeItem("token")
+      // Gunakan router.push agar SPA, tidak reload hard
+      router.push("/")
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-red-600 mb-2">Error</h2>
+          <p className="text-gray-600">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Navigation */}
-      <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="text-slate-700 hover:text-blue-600">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Kembali
-                </Button>
-              </Link>
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                  <BookOpen className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Tulisify Management
-                </span>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">T</span>
               </div>
+              <h1 className="text-xl font-semibold text-gray-900">Tulsify Admin</h1>
             </div>
-            <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-medium shadow-lg">
-              <Plus className="w-4 h-4 mr-2" />
-              Tambah Buku
-            </Button>
+
+            <div className="flex items-center gap-6">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Cari buku..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 w-64 bg-gray-50 border-gray-200"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <User className="w-4 h-4" />
+                <span className="text-sm font-medium">Admin</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-gray-800"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4 mr-1" />
+                Keluar
+              </Button>
+            </div>
           </div>
         </div>
-      </nav>
+      </header>
 
-      {/* Header Section */}
-      <section className="container mx-auto px-4 py-12">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-            Management Panel
-            <span className="block bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Perpustakaan Digital
-            </span>
-          </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">Kelola koleksi buku digital Anda dengan mudah</p>
-        </div>
-
-        {/* Search Bar */}
-        <div className="max-w-2xl mx-auto mb-8">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <Input
-              type="text"
-              placeholder="Cari buku untuk dikelola..."
-              className="pl-12 pr-4 py-3 text-lg border-2 border-slate-200 focus:border-blue-500 rounded-xl"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Management Content */}
-      <section className="container mx-auto px-4 pb-20">
-        <div className="text-center mb-8">
-          <p className="text-slate-600">
-            Total <span className="font-semibold">{filteredBooks.length}</span> buku ditemukan
-          </p>
-        </div>
-
-        <div className="grid gap-4">
-          {filteredBooks.map((book) => (
-            <Card key={book.id} className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex items-start space-x-4">
-                  {/* Book Cover Thumbnail */}
-                  <div className="w-16 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg flex-shrink-0 overflow-hidden">
-                    <div className="w-full h-full flex items-center justify-center">
-                      <BookOpen className="w-6 h-6 text-slate-400" />
-                    </div>
-                  </div>
-
-                  {/* Book Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-slate-900 mb-1">{book.title}</h3>
-                    <p className="text-sm text-slate-600 mb-1">oleh {book.author}</p>
-                    <div className="flex items-center space-x-4 text-xs text-slate-500 mb-2">
-                      <span>Tahun: {book.year}</span>
-                      <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full">{book.category}</span>
-                    </div>
-                    <p className="text-sm text-slate-600 line-clamp-2">{book.description}</p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center space-x-2 flex-shrink-0">
-                    <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-red-600 border-red-200 hover:bg-red-50"
-                      onClick={() => handleDelete(book.id, book.title)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white shadow-sm border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Total Buku</p>
+                  <p className="text-3xl font-bold text-gray-900">{totalBooks}</p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <BookOpen className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white shadow-sm border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Kategori SU</p>
+                  <p className="text-3xl font-bold text-gray-900">{suBooks}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Filter className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white shadow-sm border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Tahun Terbaru</p>
+                  <p className="text-3xl font-bold text-gray-900">{latestYear}</p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white shadow-sm border-0">
+            <CardContent className="p-6 flex items-center justify-center">
+              <Button
+                onClick={() => setShowAddModal(true)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Tambah Buku
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
-        {filteredBooks.length === 0 && (
-          <div className="text-center py-12">
-            <BookOpen className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-slate-600 mb-2">Tidak ada buku ditemukan</h3>
-            <p className="text-slate-500">Coba ubah kata kunci pencarian Anda</p>
+        {/* Books Table */}
+        <div className="bg-white rounded-lg shadow-sm border-0">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900">Daftar Buku</h3>
           </div>
-        )}
-      </section>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <span className="ml-2 text-gray-600">Memuat data...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      NO
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      COVER
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      JUDUL BUKU
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      PENGARANG
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      TAHUN
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      KATEGORI
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      FILE
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      AKSI
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {books.map((book, index) => (
+                    <tr key={book.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{index + 1}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <img
+                          src={book.cover_url || "/placeholder.svg"}
+                          alt={book.title}
+                          className="w-10 h-14 object-cover rounded border"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{book.title}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-700">{book.author}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-700">{book.year}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-medium rounded ${getCategoryColor(book.category)}`}
+                        >
+                          {book.category}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          {book.pdf_url && (
+                            <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-700">
+                              PDF
+                            </span>
+                          )}
+                          {book.cover_url && (
+                            <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-700">
+                              IMG
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => handleViewBook(book)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                            onClick={() => handleEditBook(book)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteBook(book.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Add Book Modal */}
+      <AddBookModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={() => {
+          setShowAddModal(false)
+        }}
+        onAddBook={handleAddBook}
+      />
+
+      {/* Edit Book Modal */}
+      {showEditModal && selectedBook && (
+        <AddBookModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedBook(null)
+          }}
+          onSuccess={() => {
+            setShowEditModal(false)
+            setSelectedBook(null)
+          }}
+          onAddBook={handleUpdateBook}
+          editMode={true}
+          initialData={selectedBook}
+        />
+      )}
+
+      {/* View Book Modal */}
+      {showViewModal && selectedBook && (
+        <ViewBookModal
+          isOpen={showViewModal}
+          onClose={() => {
+            setShowViewModal(false)
+            setSelectedBook(null)
+          }}
+          book={selectedBook}
+          onOpenPdf={() => handleOpenPdf(selectedBook)}
+        />
+      )}
+
+      {/* PDF Reader Modal */}
+      {showPdfReader && selectedBook && (
+        <PdfReaderModal
+          isOpen={showPdfReader}
+          onClose={() => {
+            setShowPdfReader(false)
+            setSelectedBook(null)
+          }}
+          book={selectedBook}
+        />
+      )}
     </div>
   )
 }

@@ -48,24 +48,6 @@ export default function DaftarAkunPage() {
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
         <h1 className="text-2xl font-bold text-center mb-6">Daftar Akun</h1>
 
-        <div className="mb-4 p-3 bg-blue-50 rounded text-xs border border-blue-200">
-          <p className="font-semibold mb-2 text-blue-800">Debug Info:</p>
-          <p className="text-blue-700">✅ Server Action approach</p>
-          <p className="text-blue-700">✅ No NextAuth.js conflicts</p>
-          <p className="text-blue-700">📁 Structure: src/app/actions/register.ts</p>
-        </div>
-
-        {message && (
-          <div
-            className={`p-3 rounded mb-4 text-sm ${
-              message.includes("✅")
-                ? "bg-green-100 text-green-700 border border-green-300"
-                : "bg-red-100 text-red-700 border border-red-300"
-            }`}
-          >
-            {message}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

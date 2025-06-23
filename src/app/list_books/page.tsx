@@ -1,798 +1,490 @@
 "use client"
 
-import { useState } from "react"
-import {
-  Plus,
-  Search,
-  Eye,
-  Edit,
-  Trash2,
-  Book,
-  Filter,
-  Upload,
-  X,
-  Star,
-  Calendar,
-  User,
-  Tag,
-  FileText,
-  ImageIcon,
-} from "lucide-react"
+import { useState, useEffect } from "react"
+import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { BookOpen, Search, Download, User, LogOut, Filter, Plus, Eye, Star } from "lucide-react"
 
-const categories = [
-  { value: "SU", label: "Sastra Umum", color: "bg-gradient-to-r from-blue-500 to-blue-600 text-white", icon: "📚" },
-  { value: "13+", label: "Remaja 13+", color: "bg-gradient-to-r from-green-500 to-green-600 text-white", icon: "🌟" },
-  { value: "FIKSI", label: "Fiksi", color: "bg-gradient-to-r from-purple-500 to-purple-600 text-white", icon: "✨" },
-  {
-    value: "NON-FIKSI",
-    label: "Non-Fiksi",
-    color: "bg-gradient-to-r from-orange-500 to-orange-600 text-white",
-    icon: "📖",
-  },
-  { value: "AKADEMIK", label: "Akademik", color: "bg-gradient-to-r from-red-500 to-red-600 text-white", icon: "🎓" },
-]
-
-interface BookType {
-  id: number
+interface Book {
+  id: string
   title: string
   author: string
   year: number
-  category: string
+  category: "SU" | "13+" | "18+" | "FIKSI" | "NON-FIKSI" | "AKADEMIK"
+  cover?: string
+  file?: string
   description?: string
-  coverUrl?: string
-  pdfUrl?: string
-  createdAt: string
   rating?: number
+  views?: number
+  downloads?: number
 }
 
-export default function BookManagementPage() {
-  const [books, setBooks] = useState<BookType[]>([
+interface AppUser {
+  id: string
+  email: string
+  role: "admin" | "user"
+}
+
+export default function ListBooksPage() {
+  const [books, setBooks] = useState<Book[]>([
     {
-      id: 1,
+      id: "1",
       title: "Pulang",
       author: "Tere Liye",
       year: 2015,
       category: "SU",
       description:
         "Novel tentang perjalanan hidup dan makna pulang ke rumah yang penuh dengan emosi dan pembelajaran hidup.",
-      coverUrl: "/placeholder.svg?height=160&width=120",
-      pdfUrl: "/sample.pdf",
-      createdAt: "2024-01-15",
+      cover: "/placeholder.svg?height=400&width=300",
+      file: "/sample.pdf",
       rating: 4.8,
+      views: 1250,
+      downloads: 340,
     },
     {
-      id: 2,
+      id: "2",
       title: "Pergi",
       author: "Tere Liye",
       year: 2018,
       category: "13+",
       description:
         "Kelanjutan dari novel Pulang, mengisahkan petualangan baru yang penuh dengan tantangan dan pembelajaran.",
-      coverUrl: "/placeholder.svg?height=160&width=120",
-      pdfUrl: "/sample2.pdf",
-      createdAt: "2024-01-20",
+      cover: "/placeholder.svg?height=400&width=300",
+      file: "/sample2.pdf",
       rating: 4.6,
+      views: 980,
+      downloads: 275,
     },
     {
-      id: 3,
+      id: "3",
       title: "Bumi",
       author: "Tere Liye",
       year: 2014,
       category: "13+",
       description: "Awal dari serial Bumi tentang petualangan Raib, Ali, dan Seli di dunia paralel yang menakjubkan.",
-      coverUrl: "/placeholder.svg?height=160&width=120",
-      pdfUrl: "/sample3.pdf",
-      createdAt: "2024-01-25",
+      cover: "/placeholder.svg?height=400&width=300",
+      file: "/sample3.pdf",
       rating: 4.9,
+      views: 1580,
+      downloads: 420,
+    },
+    {
+      id: "4",
+      title: "Laskar Pelangi",
+      author: "Andrea Hirata",
+      year: 2005,
+      category: "FIKSI",
+      description: "Kisah inspiratif tentang perjuangan anak-anak Belitung untuk mendapatkan pendidikan.",
+      cover: "/placeholder.svg?height=400&width=300",
+      file: "/sample4.pdf",
+      rating: 4.7,
+      views: 2100,
+      downloads: 580,
+    },
+    {
+      id: "5",
+      title: "Filosofi Teras",
+      author: "Henry Manampiring",
+      year: 2018,
+      category: "NON-FIKSI",
+      description: "Panduan praktis menerapkan filosofi Stoikisme dalam kehidupan sehari-hari.",
+      cover: "/placeholder.svg?height=400&width=300",
+      file: "/sample5.pdf",
+      rating: 4.5,
+      views: 1800,
+      downloads: 450,
+    },
+    {
+      id: "6",
+      title: "Algoritma dan Pemrograman",
+      author: "Dr. Rinaldi Munir",
+      year: 2020,
+      category: "AKADEMIK",
+      description: "Buku panduan lengkap untuk mempelajari algoritma dan teknik pemrograman.",
+      cover: "/placeholder.svg?height=400&width=300",
+      file: "/sample6.pdf",
+      rating: 4.3,
+      views: 950,
+      downloads: 320,
     },
   ])
 
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [editingBook, setEditingBook] = useState<BookType | null>(null)
-  const [formData, setFormData] = useState({
-    title: "",
-    author: "",
-    year: new Date().getFullYear(),
-    category: "",
-    description: "",
-    coverFile: null as File | null,
-    pdfFile: null as File | null,
-  })
+  const [selectedCategory, setSelectedCategory] = useState<
+    "all" | "SU" | "13+" | "18+" | "FIKSI" | "NON-FIKSI" | "AKADEMIK"
+  >("all")
+  const [appUser, setAppUser] = useState<AppUser | null>(null)
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+
+  const categories = ["all", "SU", "13+", "18+", "FIKSI", "NON-FIKSI", "AKADEMIK"] as const
+
+  // Load user from localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem("user")
+    if (userData) {
+      try {
+        setAppUser(JSON.parse(userData))
+      } catch (e) {
+        console.error("Error parsing user data:", e)
+        localStorage.removeItem("user")
+      }
+    }
+  }, [])
+
+  const handleLogout = () => {
+    if (confirm("Apakah Anda yakin ingin keluar?")) {
+      localStorage.removeItem("user")
+      window.location.href = "/"
+    }
+  }
+
+  const handleReadBook = (book: Book) => {
+    if (!appUser) {
+      setShowLoginPrompt(true)
+      return
+    }
+
+    // Increment views
+    setBooks((prevBooks) => prevBooks.map((b) => (b.id === book.id ? { ...b, views: (b.views || 0) + 1 } : b)))
+
+    if (book.file) {
+      window.open(book.file, "_blank")
+    } else {
+      alert("File buku tidak tersedia")
+    }
+  }
+
+  const handleDownloadBook = (book: Book) => {
+    if (!appUser) {
+      setShowLoginPrompt(true)
+      return
+    }
+
+    // Increment downloads
+    setBooks((prevBooks) => prevBooks.map((b) => (b.id === book.id ? { ...b, downloads: (b.downloads || 0) + 1 } : b)))
+
+    if (book.file) {
+      // Create download link
+      const link = document.createElement("a")
+      link.href = book.file
+      link.download = `${book.title}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } else {
+      alert("File buku tidak tersedia")
+    }
+  }
 
   // Filter books based on search and category
   const filteredBooks = books.filter((book) => {
     const matchesSearch =
+      searchTerm === "" ||
       book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       book.author.toLowerCase().includes(searchTerm.toLowerCase())
+
     const matchesCategory = selectedCategory === "all" || book.category === selectedCategory
+
     return matchesSearch && matchesCategory
   })
 
-  // Statistics
-  const totalBooks = books.length
-  const categoriesCount = [...new Set(books.map((book) => book.category))].length
-  const latestYear = Math.max(...books.map((book) => book.year))
-  const averageRating = books.reduce((acc, book) => acc + (book.rating || 0), 0) / books.length
+  // Render category buttons
+  {categories.map((category) => {
+    const isActive = selectedCategory === category;
+    return (
+      <Button
+  key={category}
+  variant="ghost" // Atau hilangkan variant agar tidak override
+  onClick={() => setSelectedCategory(category)}
+  className={
+    isActive
+      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold border-blue-700 shadow hover:from-blue-700 hover:to-indigo-700"
+      : "bg-white text-slate-800 border-slate-300 font-semibold hover:bg-slate-100 hover:border-blue-500"
+  }
+>
+  <Filter className={`w-5 h-5 mr-2 ${isActive ? "text-white" : "text-blue-600"}`} />
+  {category === "all" ? "Semua" : category}
+</Button>
+    );
+  })}
 
-  const handleAddBook = () => {
-    if (!formData.title || !formData.author || !formData.category) return
-
-    const newBook: BookType = {
-      id: Math.max(...books.map((b) => b.id)) + 1,
-      title: formData.title,
-      author: formData.author,
-      year: formData.year,
-      category: formData.category,
-      description: formData.description,
-      coverUrl: formData.coverFile ? URL.createObjectURL(formData.coverFile) : "/placeholder.svg?height=160&width=120",
-      pdfUrl: formData.pdfFile ? URL.createObjectURL(formData.pdfFile) : undefined,
-      createdAt: new Date().toISOString().split("T")[0],
-      rating: 0,
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case "SU":
+        return "bg-blue-600 text-white font-semibold border border-blue-700"
+      case "13+":
+        return "bg-green-600 text-white font-semibold border border-green-700"
+      case "18+":
+        return "bg-red-600 text-white font-semibold border border-red-700"
+      case "FIKSI":
+        return "bg-purple-600 text-white font-semibold border border-purple-700"
+      case "NON-FIKSI":
+        return "bg-orange-500 text-white font-semibold border border-orange-600"
+      case "AKADEMIK":
+        return "bg-gray-800 text-white font-semibold border border-gray-900"
+      default:
+        return "bg-gray-400 text-white font-semibold border border-gray-500"
     }
-
-    setBooks([...books, newBook])
-    resetForm()
-    setIsAddModalOpen(false)
   }
 
-  const handleEditBook = () => {
-    if (!editingBook || !formData.title || !formData.author || !formData.category) return
-
-    const updatedBooks = books.map((book) =>
-      book.id === editingBook.id
-        ? {
-            ...book,
-            title: formData.title,
-            author: formData.author,
-            year: formData.year,
-            category: formData.category,
-            description: formData.description,
-            coverUrl: formData.coverFile ? URL.createObjectURL(formData.coverFile) : book.coverUrl,
-            pdfUrl: formData.pdfFile ? URL.createObjectURL(formData.pdfFile) : book.pdfUrl,
-          }
-        : book,
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <BookOpen className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Terjadi Kesalahan</h2>
+          <p className="text-slate-600 mb-4">{error}</p>
+          <Button onClick={() => setError(null)}>Coba Lagi</Button>
+        </div>
+      </div>
     )
-
-    setBooks(updatedBooks)
-    resetForm()
-    setIsEditModalOpen(false)
-    setEditingBook(null)
-  }
-
-  const handleDeleteBook = (id: number) => {
-    if (confirm("Apakah Anda yakin ingin menghapus buku ini?")) {
-      setBooks(books.filter((book) => book.id !== id))
-    }
-  }
-
-  const openEditModal = (book: BookType) => {
-    setEditingBook(book)
-    setFormData({
-      title: book.title,
-      author: book.author,
-      year: book.year,
-      category: book.category,
-      description: book.description || "",
-      coverFile: null,
-      pdfFile: null,
-    })
-    setIsEditModalOpen(true)
-  }
-
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      author: "",
-      year: new Date().getFullYear(),
-      category: "",
-      description: "",
-      coverFile: null,
-      pdfFile: null,
-    })
-  }
-
-  const getCategoryStyle = (category: string) => {
-    const cat = categories.find((c) => c.value === category)
-    return cat ? cat.color : "bg-gradient-to-r from-gray-500 to-gray-600 text-white"
-  }
-
-  const getCategoryLabel = (category: string) => {
-    const cat = categories.find((c) => c.value === category)
-    return cat ? cat.label : category
-  }
-
-  const getCategoryIcon = (category: string) => {
-    const cat = categories.find((c) => c.value === category)
-    return cat ? cat.icon : "📚"
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem("token")
-    window.location.href = "/login"
-  }
-
-  const handleViewPdf = (pdfUrl: string) => {
-    window.open(pdfUrl, "_blank")
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-white/20 px-6 py-4 sticky top-0 z-40">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Book className="w-7 h-7 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Navigation */}
+      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                <BookOpen className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Tulisify Admin
-                </h1>
-                <p className="text-sm text-gray-500">Digital Library Management</p>
-              </div>
-            </div>
-          </div>
+              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Tulisify
+              </span>
+            </Link>
 
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Cari buku atau pengarang..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-80 bg-white/50 backdrop-blur-sm border-white/20 focus:bg-white/80"
-              />
-            </div>
-            <div className="flex items-center space-x-3">
-              <Avatar className="w-10 h-10 ring-2 ring-blue-100">
-                <AvatarFallback className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold">
-                  A
-                </AvatarFallback>
-              </Avatar>
-              <div className="hidden md:block">
-                <p className="text-sm font-semibold text-gray-900">Admin</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+            <div className="flex items-center space-x-4">
+              <div className="relative hidden md:block">
+                <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder="Cari buku atau penulis..."
+                  className="pl-10 w-80 h-12 border-slate-200 focus:border-blue-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
-              <Button variant="outline" size="sm" className="bg-white/50 backdrop-blur-sm border-white/20">
-                Keluar
-              </Button>
+
+              {appUser?.role === "admin" && (
+                <Button asChild className="bg-green-600 hover:bg-green-700">
+                  <Link href="/manajemen">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Kelola Buku
+                  </Link>
+                </Button>
+              )}
+
+              {appUser ? (
+                <>
+                  <Button variant="ghost" className="text-slate-600 hover:text-blue-600">
+                    <User className="w-5 h-5 mr-2" />
+                    {appUser.email}
+                  </Button>
+                  <Button variant="ghost" className="text-slate-600 hover:text-red-600" onClick={handleLogout}>
+                    <LogOut className="w-5 h-5 mr-2" />
+                    Keluar
+                  </Button>
+                </>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Button asChild variant="ghost" className="text-slate-600 hover:text-blue-600">
+                    <Link href="/login">Masuk</Link>
+                  </Button>
+                  <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Link href="/daftar-akun">Daftar</Link>
+                </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </header>
+      </nav>
 
-      {/* ...books grid... */}
-      {filteredBooks.map((book) => (
-        <div>
-          {/* ... */}
-          {book.pdfUrl ? (
+      {/* Header Section */}
+      <div className="container mx-auto px-4 py-12">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">Koleksi Buku Digital</h1>
+          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            Jelajahi ribuan buku dari berbagai kategori dan penulis terbaik
+          </p>
+
+          {/* Statistics */}
+          <div className="flex flex-wrap justify-center gap-6 mt-8">
+            <div className="bg-white/60 backdrop-blur-sm rounded-lg px-6 py-3 shadow-lg">
+              <div className="text-2xl font-bold text-blue-600">{books.length}</div>
+              <div className="text-sm text-slate-600">Total Buku</div>
+            </div>
+            <div className="bg-white/60 backdrop-blur-sm rounded-lg px-6 py-3 shadow-lg">
+              <div className="text-2xl font-bold text-green-600">
+                {books.reduce((acc, book) => acc + (book.views || 0), 0).toLocaleString()}
+              </div>
+              <div className="text-sm text-slate-600">Total Views</div>
+            </div>
+            <div className="bg-white/60 backdrop-blur-sm rounded-lg px-6 py-3 shadow-lg">
+              <div className="text-2xl font-bold text-purple-600">
+                {books.reduce((acc, book) => acc + (book.downloads || 0), 0).toLocaleString()}
+              </div>
+              <div className="text-sm text-slate-600">Downloads</div>
+            </div>
+            <div className="bg-white/60 backdrop-blur-sm rounded-lg px-6 py-3 shadow-lg">
+              <div className="text-2xl font-bold text-orange-600">
+                {(books.reduce((acc, book) => acc + (book.rating || 0), 0) / books.length).toFixed(1)}
+              </div>
+              <div className="text-sm text-slate-600">Rating Rata-rata</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search and Filter - Mobile */}
+        <div className="md:hidden mb-8 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Cari buku atau penulis..."
+              className="pl-10 h-12 border-slate-200 focus:border-blue-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Category Filter */}
+        <div className="flex flex-wrap gap-2 mb-8 justify-center">
+          {categories.map((category) => (
             <Button
-              variant="outline"
-              size="sm"
-              className="bg-white/50 border-white/20"
-              onClick={() => handleViewPdf(book.pdfUrl!)}
+              key={category}
+              variant={selectedCategory === category ? "default" : "outline"}
+              onClick={() => setSelectedCategory(category)}
+              className={
+                selectedCategory === category
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  : "border-slate-200 hover:border-blue-300"
+              }
             >
-              <Eye className="w-4 h-4 mr-1" />
-              Lihat PDF
+              <Filter className="w-4 h-4 mr-2" />
+              {category === "all" ? "Semua" : category}
             </Button>
-          ) : (
-            <span className="text-xs text-gray-400">Tidak ada PDF</span>
-          )}
-          {/* ... */}
+          ))}
         </div>
-      ))}
-      <div className="p-6">
-        {/* Page Title and Add Button */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Manajemen Buku</h2>
-            <p className="text-gray-600 text-lg">Kelola koleksi buku digital Anda dengan mudah</p>
-          </div>
-
-          <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-3">
-                <Plus className="w-5 h-5 mr-2" />
-                Tambah Buku
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto bg-white/95 backdrop-blur-md">
-              <DialogHeader className="pb-6 border-b border-gray-100">
-                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  ✨ Tambah Buku Baru
-                </DialogTitle>
-              </DialogHeader>
-              <BookForm
-                formData={formData}
-                setFormData={setFormData}
-                onSubmit={handleAddBook}
-                onCancel={() => {
-                  setIsAddModalOpen(false)
-                  resetForm()
-                }}
-                isEdit={false}
-              />
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm font-medium">Total Buku</p>
-                  <p className="text-3xl font-bold">{totalBooks}</p>
-                  <p className="text-blue-100 text-xs mt-1">Koleksi lengkap</p>
-                </div>
-                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
-                  <Book className="w-7 h-7 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm font-medium">Kategori</p>
-                  <p className="text-3xl font-bold">{categoriesCount}</p>
-                  <p className="text-green-100 text-xs mt-1">Jenis berbeda</p>
-                </div>
-                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
-                  <Filter className="w-7 h-7 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-purple-100 text-sm font-medium">Tahun Terbaru</p>
-                  <p className="text-3xl font-bold">{latestYear}</p>
-                  <p className="text-purple-100 text-xs mt-1">Publikasi terkini</p>
-                </div>
-                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
-                  <Calendar className="w-7 h-7 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-100 text-sm font-medium">Rating Rata-rata</p>
-                  <p className="text-3xl font-bold">{averageRating.toFixed(1)}</p>
-                  <p className="text-orange-100 text-xs mt-1">Dari 5 bintang</p>
-                </div>
-                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
-                  <Star className="w-7 h-7 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <Card className="mb-8 bg-white/60 backdrop-blur-sm border-white/20 shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-6">
-                <Label htmlFor="category-filter" className="text-sm font-semibold text-gray-700">
-                  🔍 Filter Kategori:
-                </Label>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-64 bg-white/50 border-white/20">
-                    <SelectValue placeholder="Semua Kategori" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">📚 Semua Kategori</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
-                        {category.icon} {category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="text-sm text-gray-600 bg-white/50 px-4 py-2 rounded-full">
-                Menampilkan <span className="font-semibold text-blue-600">{filteredBooks.length}</span> dari{" "}
-                <span className="font-semibold">{totalBooks}</span> buku
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Books Grid */}
-        <Card className="bg-white/60 backdrop-blur-sm border-white/20 shadow-lg">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-bold text-gray-900 flex items-center">📖 Daftar Buku</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {filteredBooks.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-24 h-24 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Book className="w-12 h-12 text-blue-500" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Tidak ada buku ditemukan</h3>
-                <p className="text-gray-500">Coba ubah filter atau tambah buku baru</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredBooks.map((book) => (
-                  <Card
-                    key={book.id}
-                    className="bg-white/80 backdrop-blur-sm border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex space-x-4">
-                        {/* Book Cover */}
-                        <div className="flex-shrink-0">
-                          <img
-                            src={book.coverUrl || "/placeholder.svg"}
-                            alt={book.title}
-                            className="w-20 h-28 object-cover rounded-lg shadow-md border-2 border-white/50"
-                          />
-                        </div>
-
-                        {/* Book Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-2">
-                            <h3 className="font-bold text-gray-900 text-lg leading-tight truncate">{book.title}</h3>
-                            <div className="flex items-center space-x-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEditModal(book)}
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteBook(book.id)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="flex items-center text-sm text-gray-600">
-                              <User className="w-4 h-4 mr-2 text-gray-400" />
-                              {book.author}
-                            </div>
-
-                            <div className="flex items-center text-sm text-gray-600">
-                              <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                              {book.year}
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <Badge className={`${getCategoryStyle(book.category)} shadow-sm`}>
-                                {getCategoryIcon(book.category)} {getCategoryLabel(book.category)}
-                              </Badge>
-                              {book.rating && (
-                                <div className="flex items-center text-sm text-yellow-600">
-                                  <Star className="w-4 h-4 mr-1 fill-current" />
-                                  {book.rating}
-                                </div>
-                              )}
-                            </div>
-
-                            {book.description && (
-                              <p className="text-sm text-gray-600 line-clamp-2 mt-2">{book.description}</p>
-                            )}
-
-                            <div className="flex items-center justify-between pt-2">
-                              {book.pdfUrl ? (
-                                <Button variant="outline" size="sm" className="bg-white/50 border-white/20">
-                                  <Eye className="w-4 h-4 mr-1" />
-                                  Lihat PDF
-                                </Button>
-                              ) : (
-                                <span className="text-xs text-gray-400">Tidak ada PDF</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        ) : filteredBooks.length === 0 ? (
+          <div className="text-center py-20">
+            <BookOpen className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-slate-600 mb-2">
+              {books.length === 0 ? "Belum ada buku tersedia" : "Tidak ada buku ditemukan"}
+            </h3>
+            <p className="text-slate-500">
+              {books.length === 0
+                ? "Admin belum menambahkan buku ke perpustakaan"
+                : "Coba ubah kata kunci pencarian atau filter kategori"}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {filteredBooks.map((book) => (
+              <Card
+                key={book.id}
+                className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-white/80 backdrop-blur-sm overflow-hidden"
+              >
+                <div className="relative overflow-hidden">
+                  <Image
+                    src={book.cover || "/placeholder.svg?height=400&width=300"}
+                    alt={book.title}
+                    width={300}
+                    height={400}
+                    className="w-full h-80 object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute top-4 right-4">
+                    <Badge className={`${getCategoryColor(book.category)} font-medium`}>{book.category}</Badge>
+                  </div>
+                  {book.rating && (
+                    <div className="absolute top-4 left-4">
+                      <div className="flex items-center bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                        <Star className="w-3 h-3 mr-1 fill-current" />
+                        {book.rating}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </div>
+                  )}
+                </div>
 
-        {/* Edit Modal */}
-        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-          <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto bg-white/95 backdrop-blur-md">
-            <DialogHeader className="pb-6 border-b border-gray-100">
-              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                ✏️ Edit Buku
-              </DialogTitle>
-            </DialogHeader>
-            <BookForm
-              formData={formData}
-              setFormData={setFormData}
-              onSubmit={handleEditBook}
-              onCancel={() => {
-                setIsEditModalOpen(false)
-                setEditingBook(null)
-                resetForm()
-              }}
-              isEdit={true}
-            />
-          </DialogContent>
-        </Dialog>
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                    {book.title}
+                  </h3>
+                  <p className="text-slate-600 mb-1">
+                    <span className="font-medium">Penulis:</span> {book.author}
+                  </p>
+                  <p className="text-slate-600 mb-4">
+                    <span className="font-medium">Tahun:</span> {book.year}
+                  </p>
+                  {book.description && <p className="text-slate-500 text-sm mb-4 line-clamp-2">{book.description}</p>}
+
+                  {/* Book Stats */}
+                  <div className="flex justify-between text-xs text-slate-500 mb-4">
+                    <span>👁️ {book.views?.toLocaleString()} views</span>
+                    <span>📥 {book.downloads?.toLocaleString()} downloads</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Button
+                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition"
+                      onClick={() => handleReadBook(book)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Baca Buku
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full border-slate-300 text-slate-700 hover:border-blue-400 hover:bg-blue-50 font-semibold transition"
+                      onClick={() => handleDownloadBook(book)}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download
+                    </Button>
+                      </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <BookOpen className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Login Diperlukan</h3>
+              <p className="text-gray-600 mb-6">Untuk membaca dan mengunduh buku, Anda harus login terlebih dahulu.</p>
+              <div className="flex gap-3">
+                <Button onClick={() => setShowLoginPrompt(false)} variant="outline" className="flex-1">
+                  Batal
+                </Button>
+                <Link href="/login" className="flex-1">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700">Login Sekarang</Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-
-// Enhanced Book Form Component
-function BookForm({
-  formData,
-  setFormData,
-  onSubmit,
-  onCancel,
-  isEdit,
-}: {
-  formData: any
-  setFormData: (data: any) => void
-  onSubmit: () => void
-  onCancel: () => void
-  isEdit: boolean
-}) {
-  const handleFileChange = (field: "coverFile" | "pdfFile", file: File | null) => {
-    setFormData({ ...formData, [field]: file })
-  }
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-6">
-      {/* Left Column - Form Fields */}
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <FileText className="w-5 h-5 mr-2 text-blue-600" />
-            Informasi Buku
-          </h3>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="title" className="text-sm font-semibold text-gray-700 flex items-center mb-2">
-                <Book className="w-4 h-4 mr-2" />
-                Judul Buku *
-              </Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Masukkan judul buku"
-                className="bg-white/70 border-white/20 focus:bg-white"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="author" className="text-sm font-semibold text-gray-700 flex items-center mb-2">
-                <User className="w-4 h-4 mr-2" />
-                Pengarang *
-              </Label>
-              <Input
-                id="author"
-                value={formData.author}
-                onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-                placeholder="Masukkan nama pengarang"
-                className="bg-white/70 border-white/20 focus:bg-white"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="year" className="text-sm font-semibold text-gray-700 flex items-center mb-2">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Tahun Terbit *
-                </Label>
-                <Input
-                  id="year"
-                  type="number"
-                  value={formData.year}
-                  onChange={(e) => setFormData({ ...formData, year: Number.parseInt(e.target.value) })}
-                  min="1900"
-                  max={new Date().getFullYear()}
-                  className="bg-white/70 border-white/20 focus:bg-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="category" className="text-sm font-semibold text-gray-700 flex items-center mb-2">
-                  <Tag className="w-4 h-4 mr-2" />
-                  Kategori *
-                </Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                >
-                  <SelectTrigger className="bg-white/70 border-white/20 focus:bg-white">
-                    <SelectValue placeholder="Pilih kategori" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
-                        {category.icon} {category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="description" className="text-sm font-semibold text-gray-700 flex items-center mb-2">
-                <FileText className="w-4 h-4 mr-2" />
-                Deskripsi
-              </Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Masukkan deskripsi buku (opsional)"
-                rows={4}
-                className="bg-white/70 border-white/20 focus:bg-white resize-none"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Column - File Uploads */}
-      <div className="space-y-6">
-        {/* Cover Upload */}
-        <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100">
-          <Label className="text-sm font-semibold text-gray-700 flex items-center mb-4">
-            <ImageIcon className="w-5 h-5 mr-2 text-purple-600" />
-            Cover Buku
-          </Label>
-          <div className="border-2 border-dashed border-purple-200 rounded-xl p-8 text-center hover:border-purple-300 transition-colors bg-white/50">
-            {formData.coverFile ? (
-              <div className="space-y-4">
-                <img
-                  src={URL.createObjectURL(formData.coverFile) || "/placeholder.svg"}
-                  alt="Preview"
-                  className="w-32 h-44 object-cover mx-auto rounded-lg shadow-lg border-2 border-white"
-                />
-                <p className="text-sm font-medium text-gray-700">{formData.coverFile.name}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleFileChange("coverFile", null)}
-                  className="bg-white/70 border-white/20"
-                >
-                  <X className="w-4 h-4 mr-1" />
-                  Hapus
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto">
-                  <Upload className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <Button
-                    variant="outline"
-                    onClick={() => document.getElementById("cover-upload")?.click()}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 hover:from-purple-600 hover:to-pink-600"
-                  >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Pilih Gambar
-                  </Button>
-                  <input
-                    id="cover-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleFileChange("coverFile", e.target.files?.[0] || null)}
-                  />
-                </div>
-                <p className="text-xs text-gray-500">PNG, JPG hingga 5MB</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* PDF Upload */}
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100">
-          <Label className="text-sm font-semibold text-gray-700 flex items-center mb-4">
-            <FileText className="w-5 h-5 mr-2 text-green-600" />
-            File PDF Buku *
-          </Label>
-          <div className="border-2 border-dashed border-green-200 rounded-xl p-8 text-center hover:border-green-300 transition-colors bg-white/50">
-            {formData.pdfFile ? (
-              <div className="space-y-4">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto">
-                  <FileText className="w-8 h-8 text-white" />
-                </div>
-                <p className="text-sm font-medium text-gray-700">{formData.pdfFile.name}</p>
-                <p className="text-xs text-gray-500">{(formData.pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleFileChange("pdfFile", null)}
-                  className="bg-white/70 border-white/20"
-                >
-                  <X className="w-4 h-4 mr-1" />
-                  Hapus
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto">
-                  <Upload className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <Button
-                    variant="outline"
-                    onClick={() => document.getElementById("pdf-upload")?.click()}
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 hover:from-green-600 hover:to-emerald-600"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Pilih PDF
-                  </Button>
-                  <input
-                    id="pdf-upload"
-                    type="file"
-                    accept=".pdf"
-                    className="hidden"
-                    onChange={(e) => handleFileChange("pdfFile", e.target.files?.[0] || null)}
-                  />
-                </div>
-                <p className="text-xs text-gray-500">PDF hingga 50MB</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="lg:col-span-2 flex justify-end space-x-4 pt-6 border-t border-gray-100">
-        <Button variant="outline" onClick={onCancel} className="px-8 py-3 bg-white/70 border-white/20">
-          Batal
-        </Button>
-        <Button
-          onClick={onSubmit}
-          disabled={!formData.title || !formData.author || !formData.category}
-          className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-        >
-          {isEdit ? "💾 Update Buku" : "✨ Simpan Buku"}
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-
