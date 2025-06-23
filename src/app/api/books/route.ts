@@ -1,59 +1,80 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseServer } from "../../../lib/supabase-server"
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const body = await request.json()
-    const {
-      title,
-      author,
-      year,
-      category,
-      description = null,
-      cover_url = null,
-      pdf_url = null,
-    } = body
+    console.log("=== API /books GET request started ===")
 
-    console.log("Creating book with data:", {
-      title,
-      author,
-      year,
-      category,
-      cover_url,
-      pdf_url,
-    })
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get("search")
 
-    // Validasi input
-    if (!title || !author || !year || !category) {
+    // Build query
+    let query = supabaseServer.from("books").select("*").order("created_at", { ascending: false })
+
+    if (search) {
+      query = query.or(`title.ilike.%${search}%,author.ilike.%${search}%,category.ilike.%${search}%`)
+    }
+
+    const { data: books, error } = await query
+
+    if (error) {
+      console.error("Supabase query error:", error)
       return NextResponse.json(
-        { error: "Missing required fields (title, author, year, category)" },
-        { status: 400 },
+        {
+          error: "Failed to fetch books",
+          details: error.message,
+        },
+        { status: 500 },
       )
     }
 
-    const numericYear = typeof year === "number" ? year : parseInt(year)
-    if (isNaN(numericYear)) {
-      return NextResponse.json({ error: "Invalid year format" }, { status: 400 })
+    console.log(`Successfully fetched ${books?.length || 0} books`)
+    return NextResponse.json({
+      books: books || [],
+      count: books?.length || 0,
+      success: true,
+    })
+  } catch (error) {
+    console.error("API error:", error)
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { title, author, year, category, description, cover_url, pdf_url } = body
+
+    console.log("Creating book with data:", { title, author, year, category, cover_url, pdf_url })
+
+    if (!title || !author || !year || !category) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const { data, error } = await supabaseServer
+    const { data: book, error } = await supabaseServer
       .from("books")
       .insert([
         {
           title,
           author,
-          year: numericYear,
+          year: Number.parseInt(year.toString()),
           category,
-          description,
-          cover_url,
-          pdf_url,
+          description: description || null,
+          cover_url: cover_url || null,
+          pdf_url: pdf_url || null,
         },
       ])
       .select()
       .single()
 
     if (error) {
-      console.error("Insert failed:", error)
+      console.error("Error creating book:", error)
       return NextResponse.json(
         {
           error: "Failed to create book",
@@ -63,14 +84,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log("Book inserted:", data)
-    return NextResponse.json({ book: data }, { status: 201 })
-  } catch (err) {
-    console.error("Exception in POST /api/books:", err)
+    console.log("Book created successfully:", book)
+    return NextResponse.json({ book }, { status: 201 })
+  } catch (error) {
+    console.error("Error in POST /api/books:", error)
     return NextResponse.json(
       {
         error: "Internal server error",
-        details: err instanceof Error ? err.message : "Unknown error",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     )

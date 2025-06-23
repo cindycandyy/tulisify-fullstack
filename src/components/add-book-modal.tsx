@@ -54,6 +54,18 @@ export default function AddBookModal({
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        alert("Please select a valid image file")
+        return
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image file size must be less than 5MB")
+        return
+      }
+
       setCoverFile(file)
       const reader = new FileReader()
       reader.onload = (e) => setCoverPreview(e.target?.result as string)
@@ -63,15 +75,38 @@ export default function AddBookModal({
 
   const handleBookFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file && file.type === "application/pdf") {
+    if (file) {
+      // Validate file type
+      if (file.type !== "application/pdf") {
+        alert("Please select a PDF file")
+        return
+      }
+
+      // Validate file size (max 50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        alert("PDF file size must be less than 50MB")
+        return
+      }
+
       setBookFile(file)
-    } else {
-      alert("Please select a PDF file")
+      console.log("PDF file selected:", file.name, "Size:", (file.size / 1024 / 1024).toFixed(2) + "MB")
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validate required fields
+    if (!formData.title || !formData.author || !formData.category) {
+      alert("Please fill in all required fields")
+      return
+    }
+
+    if (!editMode && !bookFile) {
+      alert("Please select a PDF file")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -100,6 +135,7 @@ export default function AddBookModal({
       setCoverPreview("")
     } catch (error) {
       console.error("Error adding book:", error)
+      alert(error instanceof Error ? error.message : "Terjadi kesalahan saat menyimpan buku")
     } finally {
       setLoading(false)
     }
@@ -271,8 +307,10 @@ export default function AddBookModal({
                     <div className="flex items-center justify-between bg-white p-3 rounded border">
                       <div className="flex items-center gap-2">
                         <BookOpen className="w-5 h-5 text-red-600" />
-                        <span className="text-sm font-medium text-gray-900">{bookFile.name}</span>
-                        <span className="text-xs text-gray-500">({(bookFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+                        <div className="text-left">
+                          <div className="text-sm font-medium text-gray-900">{bookFile.name}</div>
+                          <div className="text-xs text-gray-500">{(bookFile.size / 1024 / 1024).toFixed(1)} MB</div>
+                        </div>
                       </div>
                       <Button
                         type="button"
@@ -290,7 +328,7 @@ export default function AddBookModal({
                       <p className="text-sm text-gray-600 mb-3">Upload file PDF buku</p>
                       <Input
                         type="file"
-                        accept=".pdf"
+                        accept=".pdf,application/pdf"
                         onChange={handleBookFileChange}
                         className="hidden"
                         id="pdf-upload"
@@ -325,6 +363,7 @@ export default function AddBookModal({
               variant="outline"
               onClick={onClose}
               className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+              disabled={loading}
             >
               Batal
             </Button>

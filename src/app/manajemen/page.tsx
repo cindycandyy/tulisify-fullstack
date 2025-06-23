@@ -438,18 +438,7 @@ export default function ManajemenPage() {
         />
       )}
 
-      {/* View Book Modal */}
-      {showViewModal && selectedBook && (
-        <ViewBookModal
-          isOpen={showViewModal}
-          onClose={() => {
-            setShowViewModal(false)
-            setSelectedBook(null)
-          }}
-          book={selectedBook}
-          onOpenPdf={() => handleOpenPdf(selectedBook)}
-        />
-      )}
+      
 
       {/* PDF Reader Modal */}
       {showPdfReader && selectedBook && (

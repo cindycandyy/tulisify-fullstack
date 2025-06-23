@@ -218,6 +218,15 @@ export default function BookManagementPage() {
     return cat ? cat.icon : "📚"
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem("token")
+    window.location.href = "/login"
+  }
+
+  const handleViewPdf = (pdfUrl: string) => {
+    window.open(pdfUrl, "_blank")
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
@@ -265,6 +274,26 @@ export default function BookManagementPage() {
         </div>
       </header>
 
+      {/* ...books grid... */}
+      {filteredBooks.map((book) => (
+        <div>
+          {/* ... */}
+          {book.pdfUrl ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-white/50 border-white/20"
+              onClick={() => handleViewPdf(book.pdfUrl!)}
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              Lihat PDF
+            </Button>
+          ) : (
+            <span className="text-xs text-gray-400">Tidak ada PDF</span>
+          )}
+          {/* ... */}
+        </div>
+      ))}
       <div className="p-6">
         {/* Page Title and Add Button */}
         <div className="flex items-center justify-between mb-8">
@@ -765,3 +794,5 @@ function BookForm({
     </div>
   )
 }
+
+
